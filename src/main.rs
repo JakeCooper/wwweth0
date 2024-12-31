@@ -1,6 +1,6 @@
 use std::thread;
 use std::time::Duration;
-use wwweth0::NetworkStack;
+use wwweth0::network_stack::NetworkStack;
 
 fn main() {
     println!("Testing WebRTC Netstack");
@@ -8,17 +8,40 @@ fn main() {
     // Create network stack
     let mut stack = NetworkStack::new().expect("Failed to create network stack");
 
-    // Test ping to Google's DNS
-    match stack.send_ping("8.8.8.8") {
+    // Test ping to Google's DNS with sequence number
+    let sequence = 1;
+    match stack.send_ping_with_sequence("8.8.8.8", sequence) {
         Ok(_) => println!("Ping sent successfully"),
         Err(e) => println!("Failed to send ping: {:?}", e),
     }
 
-    // Wait for responses
-    for _ in 0..5 {
-        thread::sleep(Duration::from_millis(100));
-        if let Err(e) = stack.process_incoming() {
-            println!("Error processing packets: {:?}", e);
+    // Wait for responses with timeout
+    let start = std::time::SystemTime::now();
+    let timeout = Duration::from_secs(1);
+
+    while start.elapsed().unwrap() < timeout {
+        match stack.receive_ping_response() {
+            Ok(Some(response)) => {
+                if response.sequence == sequence {
+                    println!(
+                        "Received ping response: bytes={} time={}ms",
+                        response.bytes, response.time_ms
+                    );
+                    break;
+                }
+            }
+            Ok(None) => {
+                // No response yet, sleep a bit before trying again
+                thread::sleep(Duration::from_millis(100));
+            }
+            Err(e) => {
+                println!("Error receiving response: {:?}", e);
+                break;
+            }
         }
+    }
+
+    if start.elapsed().unwrap() >= timeout {
+        println!("Request timed out");
     }
 }
