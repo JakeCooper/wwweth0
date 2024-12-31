@@ -17,7 +17,7 @@ impl<'a> phy::TxToken for TxToken<'a> {
         log(&format!("📤 Device TX: {:?}", buffer));
 
         // Save packet in device queue
-        self.device.packets.push_back(buffer.clone());
+        self.device.rx_queue.push_back(buffer.clone());
 
         // Process ICMP packets
         if buffer.len() >= 28 && buffer[9] == 1 {
@@ -39,7 +39,7 @@ impl<'a> phy::TxToken for TxToken<'a> {
                 reply[11] = 0;
 
                 log(&format!("📤 Created echo reply: {:?}", reply));
-                self.device.packets.push_back(reply);
+                self.device.rx_queue.push_back(reply);
             }
         }
 

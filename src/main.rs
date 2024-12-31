@@ -12,7 +12,10 @@ fn main() {
     let sequence = 1;
     match stack.send_ping_with_sequence("8.8.8.8", sequence) {
         Ok(_) => println!("Ping sent successfully"),
-        Err(e) => println!("Failed to send ping: {:?}", e),
+        Err(e) => {
+            println!("Failed to send ping: {:?}", e);
+            std::process::exit(1); // Exit with a non-zero status code to indicate failure
+        }
     }
 
     // Wait for responses with timeout

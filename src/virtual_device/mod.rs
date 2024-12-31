@@ -11,14 +11,16 @@ use crate::log::log;
 
 #[derive(Debug)]
 pub struct VirtualDevice {
-    packets: VecDeque<Vec<u8>>,
+    rx_queue: VecDeque<Vec<u8>>,
+    tx_queue: VecDeque<Vec<u8>>,
 }
 
 impl VirtualDevice {
     pub fn new() -> Self {
         log("Creating new virtual device");
         Self {
-            packets: VecDeque::new(),
+            rx_queue: VecDeque::new(),
+            tx_queue: VecDeque::new(),
         }
     }
 }
@@ -45,7 +47,7 @@ impl phy::Device for VirtualDevice {
     }
 
     fn receive(&mut self, _timestamp: Instant) -> Option<(Self::RxToken<'_>, Self::TxToken<'_>)> {
-        self.packets.pop_front().map(|buffer| {
+        self.rx_queue.pop_front().map(|buffer| {
             log(&format!("📥 Device receive: {:?}", buffer));
             (RxToken(buffer), TxToken { device: self })
         })

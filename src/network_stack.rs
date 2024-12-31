@@ -72,12 +72,36 @@ impl NetworkStack {
             .send_slice(&echo_payload, target_ip)
             .map_err(|e| format!("Failed to send: {:?}", e))?;
 
-        for i in 0..3 {
-            log(&format!("🔄 Poll {}", i));
-            let result = self
-                .interface
-                .poll(Instant::now(), &mut self.device, &mut self.sockets);
-            log(&format!("Poll result: {:?}", result));
+        // Call first poll to send the packet
+        let outbound = self
+            .interface
+            .poll(Instant::now(), &mut self.device, &mut self.sockets);
+
+        // If none response, error out
+        if outbound == smoltcp::iface::PollResult::None {
+            return Err("No packet sent".to_string());
+        }
+
+        log("📤 Packet sent successfully");
+
+        // Call second poll to receive the reply
+        let reply = self
+            .interface
+            .poll(Instant::now(), &mut self.device, &mut self.sockets);
+
+        if reply == smoltcp::iface::PollResult::None {
+            return Err("No response received".to_string());
+        }
+
+        log("📥 Response received");
+
+        let empty = self
+            .interface
+            .poll(Instant::now(), &mut self.device, &mut self.sockets);
+
+        // Calling a third time should return empty because no new payloads added
+        if empty == smoltcp::iface::PollResult::SocketStateChanged {
+            return Err("Socket state changed".to_string());
         }
 
         Ok(())
