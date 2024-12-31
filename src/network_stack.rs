@@ -73,6 +73,8 @@ impl NetworkStack {
             .send_slice(&echo_payload, target_ip)
             .map_err(|e| format!("Failed to send: {:?}", e))?;
 
+        // log content of the TX queue
+
         for i in 0..3 {
             log(&format!("🔄 Poll {}", i));
             let result = self

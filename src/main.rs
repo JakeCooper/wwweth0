@@ -20,6 +20,7 @@ fn main() {
     let timeout = Duration::from_secs(1);
 
     while start.elapsed().unwrap() < timeout {
+        // Process the TX and RX queues
         match stack.receive_ping_response() {
             Ok(Some(response)) => {
                 if response.sequence == sequence {
@@ -31,7 +32,6 @@ fn main() {
                 }
             }
             Ok(None) => {
-                // No response yet, sleep a bit before trying again
                 thread::sleep(Duration::from_millis(100));
             }
             Err(e) => {
