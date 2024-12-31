@@ -1,6 +1,6 @@
 use std::thread;
 use std::time::Duration;
-use webrtc_netstack::NetworkStack;
+use wwweth0::NetworkStack;
 
 fn main() {
     println!("Testing WebRTC Netstack");
