@@ -6,7 +6,6 @@ use std::time::SystemTime;
 
 use crate::log::log;
 use crate::virtual_device::VirtualDevice;
-
 #[derive(Debug)]
 pub struct PingResponse {
     pub sequence: u16,
@@ -72,8 +71,6 @@ impl NetworkStack {
         socket
             .send_slice(&echo_payload, target_ip)
             .map_err(|e| format!("Failed to send: {:?}", e))?;
-
-        // log content of the TX queue
 
         for i in 0..3 {
             log(&format!("🔄 Poll {}", i));
