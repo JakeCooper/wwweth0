@@ -1,50 +1,83 @@
-use std::thread;
+use smoltcp::time::Instant;
 use std::time::Duration;
+use tokio::time::sleep;
 use wwweth0::network_stack::NetworkStack;
 
-fn main() {
-    println!("Testing WebRTC Netstack");
+mod log;
+
+#[tokio::main]
+async fn main() {
+    println!("Testing ICMP Ping with smoltcp");
 
     // Create network stack
-    let mut stack = NetworkStack::new().expect("Failed to create network stack");
+    let mut stack = NetworkStack::new().expect("Failed to initialize network stack");
 
-    // Test ping to Google's DNS with sequence number
+    // Destination IP address
+    let dest_ip = "8.8.8.8";
     let sequence = 1;
-    match stack.send_ping_with_sequence("8.8.8.8", sequence) {
+
+    // Send ICMP Echo Request
+    match stack.send_ping_with_sequence(dest_ip, sequence) {
         Ok(_) => println!("Ping sent successfully"),
         Err(e) => {
-            println!("Failed to send ping: {:?}", e);
-            std::process::exit(1); // Exit with a non-zero status code to indicate failure
+            eprintln!("Failed to send ping: {}", e);
+            return;
         }
     }
 
-    // Wait for responses with timeout
-    let start = std::time::SystemTime::now();
-    let timeout = Duration::from_secs(1);
+    // Wait for Echo Reply
+    let timeout = Duration::from_secs(5);
+    let start = std::time::Instant::now();
 
-    while start.elapsed().unwrap() < timeout {
-        // Process the TX and RX queues
-        match stack.receive_ping_response() {
-            Ok(Some(response)) => {
-                if response.sequence == sequence {
-                    println!(
-                        "Received ping response: bytes={} time={}ms",
-                        response.bytes, response.time_ms
-                    );
+    loop {
+        if start.elapsed() > timeout {
+            println!("Request timed out");
+            break;
+        }
+
+        stack.device.process_rx_queue();
+
+        // Poll the interface more frequently with current timestamp
+        let timestamp = Instant::now();
+        match stack
+            .interface
+            .poll(timestamp, &mut stack.device, &mut stack.sockets)
+        {
+            smoltcp::iface::PollResult::SocketStateChanged => {
+                println!("🔄 Socket state changed");
+
+                // Poll again immediately after state change
+                stack
+                    .interface
+                    .poll(timestamp, &mut stack.device, &mut stack.sockets);
+
+                if let Ok(Some(reply)) = stack.receive_ping_reply(sequence) {
+                    println!("✅ Received reply: {:?}", reply);
                     break;
                 }
             }
+            smoltcp::iface::PollResult::None => {
+                // Process any queued transmissions
+                stack.device.process_tx_queue();
+            }
+        }
+
+        // Check for ping reply
+        match stack.receive_ping_reply(sequence) {
+            Ok(Some(reply)) => {
+                println!("✅ Received reply: {:?}", reply);
+                break;
+            }
             Ok(None) => {
-                thread::sleep(Duration::from_millis(100));
+                // No reply yet, continue waiting
             }
             Err(e) => {
-                println!("Error receiving response: {:?}", e);
+                eprintln!("❌ Error receiving reply: {}", e);
                 break;
             }
         }
-    }
 
-    if start.elapsed().unwrap() >= timeout {
-        println!("Request timed out");
+        // Sleep briefly to avoid busy-waiting, but poll more frequently
+        sleep(Duration::from_millis(10)).await;
     }
 }
